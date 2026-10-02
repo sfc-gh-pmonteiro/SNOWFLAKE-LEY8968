@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Ley 8968 + Snowflake: Guia de Cumplimiento</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-10-02",
+    "intent": "Step-by-step Costa Rica Ley 8968 compliance training using Snowflake governance features: tags, masking policies, row access policies, classification, and audit",
+    "sections": [
+      { "id": "mod1", "title": "Module 1 - Ley 8968 Foundations", "producerNotes": "Conceptual overview, no queries" },
+      { "id": "mod2", "title": "Module 2 - Governance Infrastructure", "producerNotes": "DDL for governance database, schemas, roles" },
+      { "id": "mod3", "title": "Module 3 - Data Discovery", "producerNotes": "CLASSIFY function and system tags" },
+      { "id": "mod4", "title": "Module 4 - Custom Tags", "producerNotes": "Ley 8968-specific tags with ALLOWED_VALUES" },
+      { "id": "mod5", "title": "Module 5 - Masking Policies", "producerNotes": "Dynamic masking for cedula, email, phone; tag-based masking" },
+      { "id": "mod6", "title": "Module 6 - Row Access Policies", "producerNotes": "Purpose limitation via RAP" },
+      { "id": "mod7", "title": "Module 7 - Projection Policies", "producerNotes": "Data minimization via projection control" },
+      { "id": "mod8", "title": "Module 8 - Data Subject Rights (ARCO)", "producerNotes": "ARCO stored procedures" },
+      { "id": "mod9", "title": "Module 9 - Monitoring and Audit", "producerNotes": "ACCESS_HISTORY, alerts, compliance reports" }
+    ]
+  }
+  </script>
+  <link rel="stylesheet" href="/libs/highlight.js@11.10.0/github.min.css" />
+  <style>
+    :root { color-scheme: light dark; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      margin: 0; padding: 0;
+      color: light-dark(#1e293b, #e2e8f0);
+      background: light-dark(#ffffff, #0f172a);
+      line-height: 1.65;
+    }
+
+    h1, h2, h3, h4 { color: light-dark(#0f172a, #f1f5f9); line-height: 1.3; }
+    h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin-top: 0; }
+    h2 { font-size: clamp(1.3rem, 3vw, 1.7rem); border-bottom: 2px solid light-dark(#29b5e8, #29b5e8); padding-bottom: 6px; margin-top: 2.5rem; }
+    h3 { font-size: clamp(1.1rem, 2.5vw, 1.3rem); margin-top: 1.8rem; }
+
+    a { color: light-dark(#2563eb, #60a5fa); }
+    img, svg { max-width: 100%; height: auto; }
+    hr { border: none; border-top: 1px solid light-dark(#e2e8f0, #334155); margin: 2rem 0; }
+
+    .header-bar {
+      background: linear-gradient(135deg, #29b5e8, #1b6ff0);
+      color: #fff; padding: clamp(20px, 4vw, 40px); border-radius: 12px;
+      margin-bottom: 2rem; text-align: center;
+    }
+    .header-bar h1 { color: #fff; border: none; margin: 0; font-size: clamp(1.5rem, 4vw, 2rem); }
+    .header-bar p { margin: 8px 0 0; opacity: 0.9; font-size: 0.95rem; }
+    .header-bar .subtitle { font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: 500; }
+
+    :root { --sidebar-width: 270px; }
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: var(--sidebar-width); height: 100vh;
+      overflow-y: auto;
+      background: light-dark(#1e293b, #0c1222);
+      color: #cbd5e1;
+      padding: 20px 14px; z-index: 100;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+    .sidebar .logo {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px; padding-bottom: 14px;
+      border-bottom: 1px solid #334155;
+    }
+    .sidebar .logo-icon {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: linear-gradient(135deg, #29b5e8, #1b6ff0);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .sidebar .logo span {
+      font-size: 13px; font-weight: 600; color: #fff; line-height: 1.3;
+    }
+    .sidebar nav ul { list-style: none; padding: 0; margin: 0; }
+    .sidebar nav > ul > li { margin-bottom: 2px; }
+    .sidebar nav a {
+      display: block; padding: 5px 10px;
+      color: #94a3b8; text-decoration: none;
+      font-size: 12.5px; border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .sidebar nav a:hover { color: #fff; background: #334155; }
+    .sidebar nav a.active { color: #29b5e8; background: rgba(41,181,232,0.1); }
+    .sidebar nav .section-title {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #64748b;
+      padding: 10px 10px 3px; font-weight: 600;
+    }
+
+    .main {
+      margin-left: var(--sidebar-width);
+      max-width: 960px; width: 100%;
+      padding: clamp(16px, 4vw, 32px);
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { width: 100%; height: auto; position: relative; }
+      .main { margin-left: 0; }
+    }
+    @media print {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 20px; }
+    }
+
+    .module-badge {
+      display: inline-block;
+      background: light-dark(#dbeafe, #1e3a5f);
+      color: light-dark(#1e40af, #93c5fd);
+      font-size: 0.75rem; font-weight: 700;
+      padding: 2px 10px; border-radius: 12px;
+      margin-right: 8px; vertical-align: middle;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .ley8968-ref {
+      display: inline-block;
+      background: light-dark(#fef3c7, #422006);
+      color: light-dark(#92400e, #fbbf24);
+      font-size: 0.72rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    .info-box {
+      background: light-dark(#eff6ff, #1e293b);
+      border-left: 4px solid #29b5e8;
+      padding: 14px 18px; border-radius: 0 8px 8px 0;
+      margin: 16px 0; font-size: 0.92rem;
+    }
+    .info-box.warn {
+      border-left-color: #f59e0b;
+      background: light-dark(#fffbeb, #1c1917);
+    }
+    .info-box.success {
+      border-left-color: #22c55e;
+      background: light-dark(#f0fdf4, #14532d);
+    }
+    .info-box strong { display: block; margin-bottom: 4px; }
+
+    .table-wrap { overflow-x: auto; margin: 16px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 8px 12px; text-align: left; }
+    th { background: light-dark(#f1f5f9, #1e293b); font-weight: 600; }
+    tr:nth-child(even) { background: light-dark(#f8fafc, #0f172a33); }
+
+    pre {
+      background: light-dark(#1e293b, #0f172a);
+      color: #e2e8f0;
+      padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.82rem;
+      line-height: 1.5; margin: 12px 0;
+      border: 1px solid light-dark(#334155, #1e293b);
+    }
+    pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+
+    code {
+      background: light-dark(#f1f5f9, #1e293b);
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    details {
+      border: 1px solid light-dark(#e2e8f0, #334155);
+      border-radius: 8px; margin: 12px 0; padding: 0;
+    }
+    details summary {
+      padding: 12px 16px; cursor: pointer; font-weight: 600;
+      background: light-dark(#f8fafc, #1e293b); border-radius: 8px;
+      list-style: none; display: flex; align-items: center; gap: 8px;
+    }
+    details summary::before { content: '\25B6'; font-size: 0.7rem; transition: transform 0.2s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details summary::-webkit-details-marker { display: none; }
+    details > div { padding: 4px 16px 16px; }
+
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #29b5e8; color: #fff; font-weight: 700;
+      font-size: 0.82rem; margin-right: 8px; flex-shrink: 0;
+    }
+
+    .diagram-wrap { overflow-x: auto; margin: 16px 0; text-align: center; }
+
+    .glossary-term { font-weight: 700; color: light-dark(#1e40af, #93c5fd); }
+
+    .back-to-top { display: none; }
+
+    footer {
+      margin-top: 3rem; padding-top: 1.5rem;
+      border-top: 1px solid light-dark(#e2e8f0, #334155);
+      font-size: 0.82rem; color: light-dark(#64748b, #94a3b8);
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      pre { font-size: 0.75rem; padding: 12px; }
+      th, td { padding: 6px 8px; font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- SIDEBAR TOC                                   -->
+<!-- ============================================ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">L</div>
+    <span>Ley 8968 + Snowflake</span>
+  </div>
+  <nav><ul>
+    <li><div class="section-title">Fundamentos</div></li>
+    <li><a href="#mod1">1. Fundamentos de la Ley 8968</a></li>
+    <li><div class="section-title">Implementacion</div></li>
+    <li><a href="#mod2">2. Gobernanza y RBAC</a></li>
+    <li><a href="#mod3">3. Clasificacion de Datos</a></li>
+    <li><a href="#mod4">4. Tags Personalizados</a></li>
+    <li><a href="#mod5">5. Enmascaramiento Dinamico</a></li>
+    <li><a href="#mod6">6. Row Access Policies</a></li>
+    <li><a href="#mod7">7. Projection Policies</a></li>
+    <li><div class="section-title">Operacion</div></li>
+    <li><a href="#mod8">8. Derechos del Titular (ARCO)</a></li>
+    <li><a href="#mod9">9. Auditoria y Cumplimiento</a></li>
+    <li><div class="section-title">Referencia</div></li>
+    <li><a href="#glossary">Glosario Ley 8968</a></li>
+    <li><a href="#ref-table">Ley 8968 &rarr; Snowflake</a></li>
+  </ul></nav>
+</aside>
+
+<!-- ============================================ -->
+<!-- MAIN CONTENT                                  -->
+<!-- ============================================ -->
+<main class="main" id="top">
+
+<div class="header-bar">
+  <p class="subtitle">Entrenamiento Paso a Paso</p>
+  <h1>Ley 8968 + Snowflake</h1>
+  <p>Guia Completa de Cumplimiento con la Ley de Proteccion de la Persona frente al Tratamiento de sus Datos Personales de Costa Rica usando Snowflake</p>
+  <p style="margin-top:12px; font-size:0.82rem; opacity:0.75;">Ley 8968 de 7 de julio de 2011 &bull; Snowflake Enterprise Edition+ &bull; 9 Modulos</p>
+</div>
+
+<!-- ============================================ -->
+<!-- MODULE 1                                      -->
+<!-- ============================================ -->
+<h2 id="mod1"><span class="module-badge">Modulo 1</span> Fundamentos de la Ley 8968 y Arquitectura Snowflake <span class="ley8968-ref">Arts. 1-5</span></h2>
+
+<h3>Que es la Ley 8968?</h3>
+<p>La <strong>Ley 8968 de 7 de julio de 2011</strong>, conocida como <em>Ley de Proteccion de la Persona frente al Tratamiento de sus Datos Personales</em>, es la legislacion costarricense que regula la proteccion de datos personales. Establece los derechos de los titulares, las obligaciones de los responsables del tratamiento, y las sanciones administrativas. La autoridad encargada de su cumplimiento es la <strong>PRODHAB</strong> (Agencia de Proteccion de Datos de los Habitantes), adscrita al Ministerio de Justicia y Paz.</p>
+
+<h3>Conceptos fundamentales (Arts. 1-4)</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Termino Ley 8968</th><th>Definicion</th><th>Equivalente Snowflake</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dato Personal</strong></td><td>Cualquier dato relativo a una persona fisica identificada o identificable (Art. 3 inc. 1)</td><td>Columnas clasificadas como NAME, EMAIL, PHONE_NUMBER, etc.</td></tr>
+    <tr><td><strong>Dato Sensible</strong></td><td>Datos que revelen origen racial/etnico, opiniones politicas, convicciones religiosas/morales, afiliacion sindical, informacion sobre salud, vida sexual, datos biometricos (Art. 3 inc. 4)</td><td>Columnas clasificadas como ETHNICITY, MEDICAL_DATA, GENDER</td></tr>
+    <tr><td><strong>Dato de Acceso Irrestricto</strong></td><td>Datos contenidos en bases de datos publicas de acceso general (Art. 3 inc. 2)</td><td>Tablas/vistas sin restriccion de acceso</td></tr>
+    <tr><td><strong>Dato de Acceso Restringido</strong></td><td>Datos que solo el titular o personas autorizadas pueden acceder (Art. 3 inc. 3)</td><td>Columnas protegidas con Masking Policies</td></tr>
+    <tr><td><strong>Titular de los Datos</strong></td><td>Persona fisica a quien se refieren los datos personales</td><td>Registro (row) en la tabla de datos</td></tr>
+    <tr><td><strong>Responsable de la Base de Datos</strong></td><td>Persona fisica o juridica que administra, gestiona o se encarga de la base de datos (Art. 3 inc. 5)</td><td>Propietario del Snowflake Account</td></tr>
+    <tr><td><strong>Encargado de la Base de Datos</strong></td><td>Persona fisica o juridica que trata datos por cuenta del responsable (Art. 3 inc. 6)</td><td>Roles/usuarios con acceso a los datos</td></tr>
+    <tr><td><strong>Tratamiento de Datos</strong></td><td>Cualquier operacion sobre datos personales (recoleccion, almacenamiento, uso, supresion, etc.)</td><td>Queries, ETL, transformaciones en Snowflake</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Principios Fundamentales (Art. 5)</h3>
+<p>La Ley 8968 establece principios rectores para el tratamiento de datos personales:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Principio</th><th>Descripcion</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><strong>Autodeterminacion Informativa</strong></td><td>Toda persona tiene derecho a saber que datos suyos se recopilan y con que fines</td></tr>
+    <tr><td>2</td><td><strong>Consentimiento Informado</strong></td><td>El tratamiento requiere consentimiento libre, expreso e informado del titular</td></tr>
+    <tr><td>3</td><td><strong>Calidad de los Datos</strong></td><td>Los datos deben ser actuales, veraces, exactos y adecuados al fin para el cual fueron recopilados</td></tr>
+    <tr><td>4</td><td><strong>Derecho de Informacion</strong></td><td>El titular tiene derecho a conocer la existencia de ficheros con sus datos</td></tr>
+    <tr><td>5</td><td><strong>Seguridad de los Datos</strong></td><td>El responsable debe adoptar medidas tecnicas y organizativas de seguridad</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Bases Legales para el Tratamiento (Arts. 5-6)</h3>
+<p>Cada tabla con datos personales debe tener documentada su base legal:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Base Legal</th><th>Tag Value</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Consentimiento informado del titular (Art. 5 inc. 1)</td><td><code>CONSENTIMIENTO</code></td></tr>
+    <tr><td>2</td><td>Cumplimiento de una obligacion legal (Art. 5 inc. 2)</td><td><code>OBLIGACION_LEGAL</code></td></tr>
+    <tr><td>3</td><td>Proteccion de intereses vitales del titular</td><td><code>INTERES_VITAL</code></td></tr>
+    <tr><td>4</td><td>Interes publico o ejercicio de poderes publicos</td><td><code>INTERES_PUBLICO</code></td></tr>
+    <tr><td>5</td><td>Ejecucion de una relacion contractual con el titular</td><td><code>RELACION_CONTRACTUAL</code></td></tr>
+    <tr><td>6</td><td>Interes legitimo del responsable</td><td><code>INTERES_LEGITIMO</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Pre-requisitos Snowflake</h3>
+<div class="info-box">
+  <strong>Requisitos Minimos</strong>
+  <ul style="margin:4px 0 0; padding-left:18px;">
+    <li><strong>Snowflake Enterprise Edition</strong> (o superior) &mdash; obligatorio para Tags, Masking Policies, Row Access Policies y Classification</li>
+    <li><strong>Region recomendada:</strong> <code>us-east-1</code> (AWS Virginia) &mdash; region mas cercana a Costa Rica</li>
+    <li>Encriptacion: AES-256 en reposo, TLS 1.2+ en transito (estandar Snowflake)</li>
+    <li>Time Travel (hasta 90 dias) y Fail-safe (7 dias) para proteccion continua</li>
+  </ul>
+</div>
+
+<h3>Arquitectura de Gobernanza</h3>
+<div class="diagram-wrap">
+  <pre class="mermaid">
+graph TB
+  subgraph account ["Snowflake Account (us-east-1)"]
+    subgraph govDB ["LEY8968_GOVERNANCE Database"]
+      TAGS["TAGS Schema - Tags personalizados Ley 8968"]
+      POLICIES["POLICIES Schema - Masking + Row Access"]
+      AUDIT["AUDIT Schema - ARCO Log + Procedures"]
+    end
+    subgraph roles ["Jerarquia de Roles"]
+      ACCTADMIN["ACCOUNTADMIN"]
+      OFI["LEY8968_OFICIAL_DATOS"]
+      PRIV["LEY8968_PRIVACY_ADMIN"]
+      STEW["LEY8968_DATA_STEWARD"]
+      ANALYST["LEY8968_ANALYST"]
+      ACCTADMIN --> OFI
+      OFI --> PRIV
+      OFI --> STEW
+      PRIV --> ANALYST
+    end
+    subgraph dataDB ["Databases de Negocio"]
+      CUST["Tablas con Datos Personales"]
+    end
+  end
+  TAGS -.->|"tag-based masking"| CUST
+  POLICIES -.->|"proteccion"| CUST
+  AUDIT -.->|"auditoria"| CUST
+  </pre>
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 2                                      -->
+<!-- ============================================ -->
+<h2 id="mod2"><span class="module-badge">Modulo 2</span> Infraestructura de Gobernanza y RBAC <span class="ley8968-ref">Arts. 5, 10-11</span></h2>
+
+<p>En este modulo, creamos la infraestructura centralizada de gobernanza: un database dedicado, schemas para tags/politicas/auditoria, y roles especificos para Ley 8968.</p>
+
+<div class="info-box warn">
+  <strong>Configuracion Inicial</strong>
+  Antes de ejecutar cualquier modulo, defina las variables abajo con su usuario y email. Estas variables se usan a lo largo de todo el entrenamiento.
+</div>
+
+<h3><span class="step-num">0</span> Configurar Variables del Entrenamiento</h3>
+<pre><code class="language-sql">-- =============================================================
+-- CONFIGURACION: sustituya los valores abajo antes de ejecutar
+-- =============================================================
+
+SET LEY8968_USER      = '&lt;SU_USUARIO&gt;';          -- Ej: 'JMORA'
+SET LEY8968_DPO_EMAIL = '&lt;SU_EMAIL&gt;';            -- Ej: 'datos@empresa.co.cr'</code></pre>
+
+<h3><span class="step-num">1</span> Crear Database, Schemas y Warehouse</h3>
+<pre><code class="language-sql">USE ROLE SYSADMIN;
+
+CREATE DATABASE IF NOT EXISTS LEY8968_GOVERNANCE
+  COMMENT = 'Database centralizado para gobernanza Ley 8968 Costa Rica';
+
+CREATE SCHEMA IF NOT EXISTS LEY8968_GOVERNANCE.TAGS
+  COMMENT = 'Tags customizados para clasificacion Ley 8968';
+
+CREATE SCHEMA IF NOT EXISTS LEY8968_GOVERNANCE.POLICIES
+  COMMENT = 'Masking policies y Row Access Policies';
+
+CREATE SCHEMA IF NOT EXISTS LEY8968_GOVERNANCE.AUDIT
+  COMMENT = 'Logs de ARCO, procedimientos y alertas';
+
+CREATE WAREHOUSE IF NOT EXISTS LEY8968_TRAINING_WH
+  WAREHOUSE_SIZE = 'X-SMALL'
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = TRUE
+  COMMENT = 'Warehouse dedicado para entrenamiento Ley 8968';</code></pre>
+
+<h3><span class="step-num">2</span> Crear Roles Especificos para Ley 8968</h3>
+<pre><code class="language-sql">USE ROLE USERADMIN;
+
+-- Oficial de Proteccion de Datos - Art. 10
+CREATE ROLE IF NOT EXISTS LEY8968_OFICIAL_DATOS
+  COMMENT = 'Oficial de Proteccion de Datos - Art. 10 Ley 8968';
+
+CREATE ROLE IF NOT EXISTS LEY8968_PRIVACY_ADMIN
+  COMMENT = 'Crea y gestiona masking policies y row access policies';
+
+CREATE ROLE IF NOT EXISTS LEY8968_DATA_STEWARD
+  COMMENT = 'Aplica tags Ley 8968 y monitorea cumplimiento';
+
+CREATE ROLE IF NOT EXISTS LEY8968_ANALYST
+  COMMENT = 'Acceso a datos con enmascaramiento aplicado';
+
+-- Jerarquia de roles
+GRANT ROLE LEY8968_PRIVACY_ADMIN TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT ROLE LEY8968_DATA_STEWARD  TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT ROLE LEY8968_ANALYST       TO ROLE LEY8968_PRIVACY_ADMIN;</code></pre>
+
+<h3><span class="step-num">3</span> Conceder Privilegios de Gobernanza</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+
+GRANT USAGE ON DATABASE LEY8968_GOVERNANCE TO ROLE LEY8968_DATA_STEWARD;
+GRANT USAGE ON SCHEMA LEY8968_GOVERNANCE.TAGS TO ROLE LEY8968_DATA_STEWARD;
+GRANT CREATE TAG ON SCHEMA LEY8968_GOVERNANCE.TAGS TO ROLE LEY8968_DATA_STEWARD;
+GRANT APPLY TAG ON ACCOUNT TO ROLE LEY8968_DATA_STEWARD;
+
+GRANT USAGE ON DATABASE LEY8968_GOVERNANCE TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT USAGE ON ALL SCHEMAS IN DATABASE LEY8968_GOVERNANCE TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT CREATE MASKING POLICY ON SCHEMA LEY8968_GOVERNANCE.POLICIES
+  TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT CREATE ROW ACCESS POLICY ON SCHEMA LEY8968_GOVERNANCE.POLICIES
+  TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT APPLY MASKING POLICY ON ACCOUNT TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT APPLY ROW ACCESS POLICY ON ACCOUNT TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT CREATE PROJECTION POLICY ON SCHEMA LEY8968_GOVERNANCE.POLICIES
+  TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT APPLY PROJECTION POLICY ON ACCOUNT TO ROLE LEY8968_PRIVACY_ADMIN;
+
+GRANT DATABASE ROLE SNOWFLAKE.GOVERNANCE_VIEWER TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT DATABASE ROLE SNOWFLAKE.OBJECT_VIEWER TO ROLE LEY8968_OFICIAL_DATOS;
+
+GRANT ROLE LEY8968_OFICIAL_DATOS TO USER IDENTIFIER($LEY8968_USER);
+
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE LEY8968_DATA_STEWARD;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE LEY8968_ANALYST;
+
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE LEY8968_DATA_STEWARD;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE LEY8968_DATA_STEWARD;
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT SELECT ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+  TO ROLE LEY8968_PRIVACY_ADMIN;
+
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT CREATE STAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT USAGE ON SCHEMA LEY8968_GOVERNANCE.AUDIT TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT CREATE TABLE ON SCHEMA LEY8968_GOVERNANCE.AUDIT TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT CREATE PROCEDURE ON SCHEMA LEY8968_GOVERNANCE.AUDIT TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT CREATE ALERT ON SCHEMA LEY8968_GOVERNANCE.AUDIT TO ROLE LEY8968_OFICIAL_DATOS;
+GRANT EXECUTE ALERT ON ACCOUNT TO ROLE LEY8968_OFICIAL_DATOS;
+
+GRANT CREATE TABLE ON SCHEMA LEY8968_GOVERNANCE.POLICIES
+  TO ROLE LEY8968_PRIVACY_ADMIN;</code></pre>
+
+<h3><span class="step-num">4</span> Validacion</h3>
+<pre><code class="language-sql">SHOW GRANTS TO ROLE LEY8968_OFICIAL_DATOS;
+SHOW GRANTS TO ROLE LEY8968_PRIVACY_ADMIN;
+SHOW GRANTS TO ROLE LEY8968_DATA_STEWARD;
+
+SHOW GRANTS ON SCHEMA LEY8968_GOVERNANCE.TAGS;
+SHOW GRANTS ON SCHEMA LEY8968_GOVERNANCE.POLICIES;</code></pre>
+
+<div class="info-box success">
+  <strong>Resultado Esperado</strong>
+  El role LEY8968_OFICIAL_DATOS debe heredar los privilegios de LEY8968_PRIVACY_ADMIN y LEY8968_DATA_STEWARD, teniendo vision completa de la gobernanza a traves del Snowsight Governance Dashboard.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 3                                      -->
+<!-- ============================================ -->
+<h2 id="mod3"><span class="module-badge">Modulo 3</span> Descubrimiento y Clasificacion de Datos <span class="ley8968-ref">Arts. 3-4, 7</span></h2>
+
+<p>Antes de proteger datos personales, es necesario saber <strong>donde estan</strong>. Snowflake ofrece clasificacion automatica que identifica PII y datos sensibles.</p>
+
+<h3><span class="step-num">1</span> Crear Datos de Ejemplo (Para Entrenamiento)</h3>
+<pre><code class="language-sql">USE ROLE SYSADMIN;
+CREATE DATABASE IF NOT EXISTS EMPRESA_DEMO_CR;
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE LEY8968_ANALYST;
+CREATE SCHEMA IF NOT EXISTS EMPRESA_DEMO_CR.DATOS_CLIENTES;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE LEY8968_ANALYST;
+
+CREATE OR REPLACE TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES (
+  ID              NUMBER AUTOINCREMENT PRIMARY KEY,
+  NOMBRE          STRING    COMMENT 'Nombre completo del titular',
+  CEDULA          STRING    COMMENT 'Cedula de identidad costarricense',
+  EMAIL           STRING    COMMENT 'Direccion de correo electronico',
+  TELEFONO        STRING    COMMENT 'Telefono movil con codigo de pais',
+  FECHA_NACIMIENTO DATE     COMMENT 'Fecha de nacimiento',
+  DIRECCION       STRING    COMMENT 'Direccion residencial',
+  DISTRITO        STRING    COMMENT 'Distrito de residencia',
+  CANTON          STRING    COMMENT 'Canton de residencia',
+  PROVINCIA       STRING    COMMENT 'Provincia de residencia',
+  GENERO          STRING    COMMENT 'Dato sensible (Art. 3 inc. 4)',
+  ETNIA           STRING    COMMENT 'Dato sensible (Art. 3 inc. 4)',
+  DEPARTAMENTO    STRING    COMMENT 'Departamento interno',
+  FECHA_REGISTRO  TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP()
+);
+GRANT SELECT ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES TO ROLE LEY8968_ANALYST;
+
+INSERT INTO EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+  (NOMBRE, CEDULA, EMAIL, TELEFONO, FECHA_NACIMIENTO, DIRECCION, DISTRITO, CANTON, PROVINCIA, GENERO, ETNIA, DEPARTAMENTO)
+VALUES
+  ('Maria Fernanda Mora',  '1-1234-5678', 'maria.mora@email.co.cr',    '+506 8123-4567', '1990-03-15', 'Barrio Escalante, Casa 24',      'Carmen',     'San Jose',   'San Jose',     'Femenino',  'Mestiza',  'RRHH'),
+  ('Carlos Eduardo Solis', '2-5678-9012', 'carlos.solis@email.co.cr',  '+506 8234-5678', '1985-07-22', 'Residencial Los Arcos, Apt 5B',  'San Pedro',  'Montes de Oca', 'San Jose',  'Masculino', 'Blanca',   'FINANZAS'),
+  ('Ana Patricia Vargas',  '3-2345-6789', 'ana.vargas@email.co.cr',    '+506 8345-6789', '1992-11-08', 'Urbanizacion La Valencia, #12',  'Liberia',    'Liberia',    'Guanacaste',   'Femenino',  'Afrodescendiente', 'MARKETING'),
+  ('Jose Luis Jimenez',    '1-8901-2345', 'jose.j@empresa.co.cr',      '+506 8456-7890', '1988-01-30', 'Barrio Los Angeles, Casa 8',     'Heredia',    'Heredia',    'Heredia',      'Masculino', 'Blanca',   'RRHH'),
+  ('Sofia Elena Castro',   '4-0123-4567', 'sofia.castro@empresa.co.cr', '+506 8567-8901', '1995-06-12', 'Condominio Montezuma, Torre 2',  'Cartago',    'Cartago',    'Cartago',      'Femenino',  'Mestiza',  'FINANZAS');</code></pre>
+
+<h3><span class="step-num">2</span> Ejecutar Clasificacion Automatica</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+
+CALL SYSTEM$CLASSIFY(
+  'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES',
+  {'auto_tag': true}
+);</code></pre>
+
+<h3><span class="step-num">3</span> Revisar Resultados de la Clasificacion</h3>
+<pre><code class="language-sql">CALL SYSTEM$GET_CLASSIFICATION_RESULT(
+  'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES'
+);
+
+SELECT *
+FROM TABLE(
+  EMPRESA_DEMO_CR.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+    'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES', 'TABLE'
+  )
+)
+WHERE TAG_NAME IN ('SEMANTIC_CATEGORY', 'PRIVACY_CATEGORY')
+ORDER BY COLUMN_NAME, TAG_NAME;</code></pre>
+
+<h3>Mapeo: Categorias Snowflake a Ley 8968</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Columna</th><th>Semantic Category</th><th>Privacy Category</th><th>Categoria Ley 8968</th></tr></thead>
+  <tbody>
+    <tr><td>NOMBRE</td><td>NAME</td><td>IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>CEDULA</td><td>NATIONAL_IDENTIFIER</td><td>IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>EMAIL</td><td>EMAIL</td><td>IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>TELEFONO</td><td>PHONE_NUMBER</td><td>IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>FECHA_NACIMIENTO</td><td>DATE_OF_BIRTH</td><td>QUASI_IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>DIRECCION</td><td>STREET_ADDRESS</td><td>IDENTIFIER</td><td>Dato Personal (Acceso Restringido)</td></tr>
+    <tr><td>GENERO</td><td>GENDER</td><td>QUASI_IDENTIFIER</td><td><strong>Dato Sensible</strong></td></tr>
+    <tr><td>ETNIA</td><td>ETHNICITY</td><td>QUASI_IDENTIFIER</td><td><strong>Dato Sensible</strong></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="info-box warn">
+  <strong>Atencion: Datos Sensibles (Art. 3 inc. 4, Art. 7)</strong>
+  Columnas como GENERO y ETNIA son datos sensibles bajo la Ley 8968 y exigen proteccion reforzada. El tratamiento de datos sensibles requiere consentimiento expreso y por escrito del titular (Art. 7), excepto cuando sea necesario para salvaguardar la vida del titular, o cuando los datos hayan sido hechos publicos por el propio titular.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 4                                      -->
+<!-- ============================================ -->
+<h2 id="mod4"><span class="module-badge">Modulo 4</span> Tags Personalizados para Ley 8968 <span class="ley8968-ref">Arts. 5-6, 10</span></h2>
+
+<p>Ademas de los tags de sistema (clasificacion automatica), creamos tags personalizados para documentar metadatos exigidos por la Ley 8968: base legal, finalidad, periodo de retencion, y responsables.</p>
+
+<h3><span class="step-num">1</span> Crear Tags Ley 8968</h3>
+<pre><code class="language-sql">USE ROLE LEY8968_DATA_STEWARD;
+USE SCHEMA LEY8968_GOVERNANCE.TAGS;
+
+CREATE OR REPLACE TAG LEY8968_DATA_CATEGORY
+  ALLOWED_VALUES
+    'DATO_PERSONAL',
+    'DATO_SENSIBLE',
+    'DATO_ACCESO_IRRESTRICTO',
+    'DATO_ANONIMIZADO',
+    'NO_PERSONAL'
+  COMMENT = 'Clasificacion del dato conforme Art. 3 de la Ley 8968';
+
+CREATE OR REPLACE TAG LEY8968_BASE_LEGAL
+  ALLOWED_VALUES
+    'CONSENTIMIENTO',
+    'OBLIGACION_LEGAL',
+    'INTERES_VITAL',
+    'INTERES_PUBLICO',
+    'RELACION_CONTRACTUAL',
+    'INTERES_LEGITIMO'
+  COMMENT = 'Base legal para tratamiento conforme Arts. 5-6 de la Ley 8968';
+
+CREATE OR REPLACE TAG LEY8968_FINALIDAD
+  COMMENT = 'Descripcion de la finalidad del tratamiento (Art. 5, principio de calidad)';
+
+CREATE OR REPLACE TAG LEY8968_RETENCION
+  COMMENT = 'Periodo de retencion en dias (Art. 6)';
+
+CREATE OR REPLACE TAG LEY8968_RESPONSABLE
+  COMMENT = 'Nombre del responsable de la base de datos (Art. 3 inc. 5)';
+
+CREATE OR REPLACE TAG LEY8968_ENCARGADO
+  COMMENT = 'Nombre del encargado de la base de datos (Art. 3 inc. 6)';</code></pre>
+
+<h3><span class="step-num">2</span> Aplicar Tags a Tablas (Herencia)</h3>
+<pre><code class="language-sql">ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES SET TAG
+  LEY8968_GOVERNANCE.TAGS.LEY8968_BASE_LEGAL    = 'CONSENTIMIENTO',
+  LEY8968_GOVERNANCE.TAGS.LEY8968_FINALIDAD     = 'Registro de clientes para prestacion de servicios',
+  LEY8968_GOVERNANCE.TAGS.LEY8968_RETENCION     = '1825',
+  LEY8968_GOVERNANCE.TAGS.LEY8968_RESPONSABLE   = 'Empresa Demo Costa Rica S.A.';
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  NOMBRE SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  CEDULA SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  EMAIL SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  TELEFONO SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  FECHA_NACIMIENTO SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  DIRECCION SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_PERSONAL';</code></pre>
+
+<h3><span class="step-num">3</span> Tags Especificos para Columnas Sensibles</h3>
+<pre><code class="language-sql">ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  GENERO SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_SENSIBLE';
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  ETNIA SET TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY = 'DATO_SENSIBLE';</code></pre>
+
+<h3><span class="step-num">4</span> Validacion de los Tags</h3>
+<pre><code class="language-sql">SELECT *
+FROM TABLE(
+  EMPRESA_DEMO_CR.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+    'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES', 'TABLE'
+  )
+)
+WHERE TAG_DATABASE = 'LEY8968_GOVERNANCE'
+ORDER BY COLUMN_NAME, TAG_NAME;
+
+SELECT SYSTEM$GET_TAG(
+  'LEY8968_GOVERNANCE.TAGS.LEY8968_BASE_LEGAL',
+  'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES',
+  'TABLE'
+);</code></pre>
+
+<div class="info-box">
+  <strong>Herencia de Tags y Tag-Based Masking</strong>
+  Los tags de metadatos (BASE_LEGAL, FINALIDAD, RETENCION, RESPONSABLE) se aplican a la tabla y son heredados por todas las columnas. El tag <code>LEY8968_DATA_CATEGORY</code> se aplica <strong>individualmente por columna</strong> para evitar que columnas no-PII (como DEPARTAMENTO, DISTRITO, CANTON) sean enmascaradas por el tag-based masking del Modulo 5. Las columnas sensibles (GENERO, ETNIA) reciben <code>DATO_SENSIBLE</code>.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 5                                      -->
+<!-- ============================================ -->
+<h2 id="mod5"><span class="module-badge">Modulo 5</span> Politicas de Enmascaramiento Dinamico <span class="ley8968-ref">Art. 5 inc. 5, Art. 10</span></h2>
+
+<p>Las masking policies protegen datos personales en tiempo de consulta. El dato original permanece intacto en la tabla, pero usuarios no autorizados ven valores enmascarados.</p>
+
+<h3><span class="step-num">1</span> Crear Masking Policies por Tipo de Dato</h3>
+
+<details>
+  <summary>Enmascaramiento de Cedula</summary>
+  <div>
+<pre><code class="language-sql">USE ROLE LEY8968_PRIVACY_ADMIN;
+
+CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_CEDULA
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    WHEN IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN') THEN val
+    ELSE CONCAT(
+      LEFT(val, POSITION('-' IN val)),
+      '****-****'
+    )
+  END
+  COMMENT = 'Enmascara cedula para roles no autorizados (Art. 5, seguridad de los datos)';</code></pre>
+  </div>
+</details>
+
+<details>
+  <summary>Enmascaramiento de Email</summary>
+  <div>
+<pre><code class="language-sql">CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_EMAIL
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    WHEN IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN') THEN val
+    ELSE REGEXP_REPLACE(val, '.+\\@', '*****@')
+  END
+  COMMENT = 'Enmascara parte local del email (Art. 5, seguridad)';</code></pre>
+  </div>
+</details>
+
+<details>
+  <summary>Enmascaramiento de Telefono</summary>
+  <div>
+<pre><code class="language-sql">CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PHONE
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    ELSE CONCAT('+506 ****-', RIGHT(val, 4))
+  END
+  COMMENT = 'Enmascara telefono conservando ultimos 4 digitos';</code></pre>
+  </div>
+</details>
+
+<details>
+  <summary>Enmascaramiento Generico (String, Number, Date)</summary>
+  <div>
+<pre><code class="language-sql">CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_STRING
+  AS (val STRING) RETURNS STRING ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    WHEN IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN') THEN val
+    ELSE '***PROTEGIDO***'
+  END
+  COMMENT = 'Enmascaramiento generico para strings con datos personales';
+
+CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_NUMBER
+  AS (val NUMBER) RETURNS NUMBER ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    ELSE NULL
+  END
+  COMMENT = 'Enmascaramiento generico para numeros con datos personales';
+
+CREATE OR REPLACE MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_DATE
+  AS (val DATE) RETURNS DATE ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS') THEN val
+    ELSE DATE_FROM_PARTS(1900, 01, 01)
+  END
+  COMMENT = 'Enmascaramiento generico para fechas con datos personales';</code></pre>
+  </div>
+</details>
+
+<h3><span class="step-num">2</span> Aplicar Policies Directamente en las Columnas</h3>
+<pre><code class="language-sql">ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  CEDULA SET MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_CEDULA;
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  EMAIL SET MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_EMAIL;
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  TELEFONO SET MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PHONE;
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  FECHA_NACIMIENTO SET MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_DATE;</code></pre>
+
+<h3><span class="step-num">3</span> Tag-Based Masking (Enfoque Escalable)</h3>
+<pre><code class="language-sql">USE ROLE LEY8968_PRIVACY_ADMIN;
+
+ALTER TAG LEY8968_GOVERNANCE.TAGS.LEY8968_DATA_CATEGORY SET
+  MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_STRING,
+  MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_NUMBER,
+  MASKING POLICY LEY8968_GOVERNANCE.POLICIES.MASK_PII_DATE;
+
+-- IMPORTANTE: Policies aplicadas directamente a la columna
+-- tienen PRECEDENCIA sobre tag-based masking policies.</code></pre>
+
+<div class="info-box">
+  <strong>Precedencia de Policies</strong>
+  Cuando una columna tiene <strong>ambas</strong> una masking policy directa y una tag-based masking policy, la policy directa tiene precedencia. Esto permite crear una proteccion generica via tags y refinamientos especificos por columna.
+</div>
+
+<h3><span class="step-num">4</span> Probar Enmascaramiento</h3>
+<pre><code class="language-sql">USE SECONDARY ROLES NONE;
+
+-- Como LEY8968_OFICIAL_DATOS: debe ver datos completos
+USE ROLE LEY8968_OFICIAL_DATOS;
+SELECT NOMBRE, CEDULA, EMAIL, TELEFONO, FECHA_NACIMIENTO
+FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+LIMIT 3;
+
+-- Como LEY8968_ANALYST: debe ver datos enmascarados
+USE ROLE LEY8968_ANALYST;
+SELECT NOMBRE, CEDULA, EMAIL, TELEFONO, FECHA_NACIMIENTO
+FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+LIMIT 3;
+-- Resultado esperado:
+-- NOMBRE: ***PROTEGIDO***
+-- CEDULA: 1-****-****
+-- EMAIL: *****@email.co.cr
+-- TELEFONO: +506 ****-4567
+-- FECHA_NACIMIENTO: 1900-01-01
+
+USE SECONDARY ROLES ALL;</code></pre>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 6                                      -->
+<!-- ============================================ -->
+<h2 id="mod6"><span class="module-badge">Modulo 6</span> Row Access Policies <span class="ley8968-ref">Art. 5 inc. 3, Art. 10</span></h2>
+
+<p>Las Row Access Policies restringen cuales <strong>filas</strong> un usuario puede ver, implementando el principio de <strong>calidad de los datos</strong> (Art. 5, inc. 3) &mdash; los datos deben ser adecuados al fin para el cual fueron recopilados. Cada departamento solo accede a los datos necesarios para su finalidad.</p>
+
+<h3><span class="step-num">1</span> Crear Roles por Departamento (Pre-requisito)</h3>
+<pre><code class="language-sql">USE ROLE USERADMIN;
+
+CREATE ROLE IF NOT EXISTS RRHH_ANALYST COMMENT = 'Analista de Recursos Humanos';
+CREATE ROLE IF NOT EXISTS MARKETING_ANALYST COMMENT = 'Analista de Marketing';
+CREATE ROLE IF NOT EXISTS FINANZAS_ANALYST COMMENT = 'Analista Financiero';
+
+GRANT ROLE RRHH_ANALYST TO USER IDENTIFIER($LEY8968_USER);
+GRANT ROLE MARKETING_ANALYST TO USER IDENTIFIER($LEY8968_USER);
+GRANT ROLE FINANZAS_ANALYST TO USER IDENTIFIER($LEY8968_USER);
+
+USE ROLE ACCOUNTADMIN;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE RRHH_ANALYST;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE MARKETING_ANALYST;
+GRANT USAGE ON WAREHOUSE LEY8968_TRAINING_WH TO ROLE FINANZAS_ANALYST;
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE RRHH_ANALYST;
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE MARKETING_ANALYST;
+GRANT USAGE ON DATABASE EMPRESA_DEMO_CR TO ROLE FINANZAS_ANALYST;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE RRHH_ANALYST;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE MARKETING_ANALYST;
+GRANT USAGE ON SCHEMA EMPRESA_DEMO_CR.DATOS_CLIENTES TO ROLE FINANZAS_ANALYST;
+GRANT SELECT ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES TO ROLE RRHH_ANALYST;
+GRANT SELECT ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES TO ROLE MARKETING_ANALYST;
+GRANT SELECT ON TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES TO ROLE FINANZAS_ANALYST;</code></pre>
+
+<h3><span class="step-num">2</span> Crear Tabla de Mapeo de Acceso</h3>
+<pre><code class="language-sql">USE ROLE LEY8968_PRIVACY_ADMIN;
+
+CREATE OR REPLACE TABLE LEY8968_GOVERNANCE.POLICIES.ACCESS_MAPPING (
+  ROLE_NAME       STRING   COMMENT 'Role Snowflake',
+  DEPARTMENT      STRING   COMMENT 'Departamento permitido',
+  ALLOWED_PURPOSE STRING   COMMENT 'Finalidad del acceso',
+  REGION          STRING   COMMENT 'Region permitida'
+);
+
+INSERT INTO LEY8968_GOVERNANCE.POLICIES.ACCESS_MAPPING VALUES
+  ('RRHH_ANALYST',          'RRHH',      'GESTION_PERSONAL',  'COSTA_RICA'),
+  ('MARKETING_ANALYST',     'MARKETING', 'CAMPANAS',          'COSTA_RICA'),
+  ('FINANZAS_ANALYST',      'FINANZAS',  'FACTURACION',       'COSTA_RICA'),
+  ('LEY8968_OFICIAL_DATOS', 'ALL',       'GOBERNANZA',        'ALL'),
+  ('LEY8968_PRIVACY_ADMIN', 'ALL',       'GOBERNANZA',        'ALL');</code></pre>
+
+<h3><span class="step-num">3</span> Crear Row Access Policy</h3>
+<pre><code class="language-sql">CREATE OR REPLACE ROW ACCESS POLICY
+  LEY8968_GOVERNANCE.POLICIES.RAP_PURPOSE_LIMITATION
+  AS (department STRING) RETURNS BOOLEAN ->
+  IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS')
+  OR IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN')
+  OR EXISTS (
+    SELECT 1
+    FROM LEY8968_GOVERNANCE.POLICIES.ACCESS_MAPPING am
+    WHERE am.ROLE_NAME = CURRENT_ROLE()
+      AND (am.DEPARTMENT = department OR am.DEPARTMENT = 'ALL')
+  )
+  COMMENT = 'Limita acceso por departamento conforme principio de calidad (Art. 5, inc. 3 Ley 8968)';</code></pre>
+
+<h3><span class="step-num">4</span> Aplicar la Row Access Policy</h3>
+<pre><code class="language-sql">ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+  ADD ROW ACCESS POLICY LEY8968_GOVERNANCE.POLICIES.RAP_PURPOSE_LIMITATION
+  ON (DEPARTAMENTO);</code></pre>
+
+<h3><span class="step-num">5</span> Probar Filtrado por Departamento</h3>
+<pre><code class="language-sql">USE SECONDARY ROLES NONE;
+
+USE ROLE LEY8968_OFICIAL_DATOS;
+SELECT NOMBRE, DEPARTAMENTO FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES;
+-- Resultado: 5 registros (todos los departamentos)
+
+USE ROLE RRHH_ANALYST;
+SELECT NOMBRE, DEPARTAMENTO FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES;
+-- Resultado: 2 registros (Maria Fernanda Mora y Jose Luis Jimenez - ambos RRHH)
+
+USE ROLE FINANZAS_ANALYST;
+SELECT NOMBRE, DEPARTAMENTO FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES;
+-- Resultado: 2 registros (Carlos Eduardo Solis y Sofia Elena Castro)
+
+USE SECONDARY ROLES ALL;</code></pre>
+
+<div class="info-box">
+  <strong>Orden de Evaluacion</strong>
+  Snowflake evalua primero la Row Access Policy (filtrado de filas), luego las Projection Policies (bloqueo de columnas en el output), y por ultimo aplica las Masking Policies (enmascaramiento de valores). Esto significa que un RRHH_ANALYST vera solo 2 filas, y en esas filas los datos personales estaran enmascarados.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 7                                      -->
+<!-- ============================================ -->
+<h2 id="mod7"><span class="module-badge">Modulo 7</span> Politicas de Proyeccion (Projection Policies) <span class="ley8968-ref">Art. 5 inc. 3, Art. 7, Art. 10</span></h2>
+
+<p>Las Projection Policies son la <strong>tercera capa de defensa</strong> de Snowflake. Mientras las masking policies transforman valores visibles y las Row Access Policies filtran filas, las projection policies <strong>impiden que una columna aparezca en el resultado final</strong> de un query &mdash; implementando el principio de <strong>calidad de los datos</strong> y <strong>minimizacion</strong> de la Ley 8968.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Aspecto</th><th>Row Access Policy</th><th>Projection Policy</th><th>Masking Policy</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Que controla</strong></td><td>Cuales FILAS el usuario ve</td><td>Cuales COLUMNAS aparecen en el resultado</td><td>Como los VALORES aparecen</td></tr>
+    <tr><td><strong>Enforcement</strong></td><td>Filtra silenciosamente</td><td>FAIL (bloquea query) o NULLIFY (retorna NULL)</td><td>Transforma el valor</td></tr>
+    <tr><td><strong>Uso en WHERE/JOIN</strong></td><td>N/A</td><td>Columna utilizable &mdash; solo el output es bloqueado</td><td>Opera sobre valor enmascarado</td></tr>
+    <tr><td><strong>Articulos Ley 8968</strong></td><td>Art. 5, inc. 3 (Calidad)</td><td>Art. 5, inc. 3 (Calidad) / Art. 7 (Sensibles)</td><td>Art. 5, inc. 5 (Seguridad) / Art. 10</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="info-box">
+  <strong>Defensa en Profundidad &mdash; Orden de Evaluacion en Snowflake</strong><br>
+  <code>Capa 1: Row Access Policy</code> &rarr; filtra FILAS (quien ve cuales registros)<br>
+  <code>Capa 2: Projection Policy</code> &rarr; bloquea COLUMNAS en el output (quien ve cuales campos)<br>
+  <code>Capa 3: Masking Policy</code> &rarr; transforma VALORES visibles (como aparecen los datos)<br><br>
+  En la tabla CLIENTES, las tres capas estan activas simultaneamente.
+</div>
+
+<h3><span class="step-num">1</span> Crear Projection Policies</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+GRANT CREATE PROJECTION POLICY ON SCHEMA LEY8968_GOVERNANCE.POLICIES
+  TO ROLE LEY8968_PRIVACY_ADMIN;
+GRANT APPLY PROJECTION POLICY ON ACCOUNT TO ROLE LEY8968_PRIVACY_ADMIN;
+
+USE ROLE LEY8968_PRIVACY_ADMIN;
+
+CREATE OR REPLACE PROJECTION POLICY LEY8968_GOVERNANCE.POLICIES.PROJ_SENSITIVE_BLOCK
+  AS () RETURNS PROJECTION_CONSTRAINT ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS')
+      THEN PROJECTION_CONSTRAINT(ALLOW => true)
+    WHEN IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN')
+      THEN PROJECTION_CONSTRAINT(ALLOW => true)
+    ELSE PROJECTION_CONSTRAINT(ALLOW => false)
+  END
+  COMMENT = 'Bloquea proyeccion de datos sensibles (Art. 7 Ley 8968)';
+
+CREATE OR REPLACE PROJECTION POLICY LEY8968_GOVERNANCE.POLICIES.PROJ_PII_NULLIFY
+  AS () RETURNS PROJECTION_CONSTRAINT ->
+  CASE
+    WHEN IS_ROLE_IN_SESSION('LEY8968_OFICIAL_DATOS')
+      THEN PROJECTION_CONSTRAINT(ALLOW => true)
+    WHEN IS_ROLE_IN_SESSION('LEY8968_PRIVACY_ADMIN')
+      THEN PROJECTION_CONSTRAINT(ALLOW => true)
+    ELSE PROJECTION_CONSTRAINT(ALLOW => false, ENFORCEMENT => 'NULLIFY')
+  END
+  COMMENT = 'Retorna NULL para columnas PII no autorizadas (Art. 5, inc. 3 Ley 8968)';</code></pre>
+
+<h3><span class="step-num">2</span> Aplicar Projection Policies a las Columnas</h3>
+<pre><code class="language-sql">ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  GENERO SET PROJECTION POLICY LEY8968_GOVERNANCE.POLICIES.PROJ_SENSITIVE_BLOCK;
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  ETNIA SET PROJECTION POLICY LEY8968_GOVERNANCE.POLICIES.PROJ_SENSITIVE_BLOCK;
+
+ALTER TABLE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES MODIFY COLUMN
+  DIRECCION SET PROJECTION POLICY LEY8968_GOVERNANCE.POLICIES.PROJ_PII_NULLIFY;</code></pre>
+
+<h3><span class="step-num">3</span> Validacion de las Projection Policies</h3>
+<pre><code class="language-sql">USE SECONDARY ROLES NONE;
+
+USE ROLE LEY8968_OFICIAL_DATOS;
+SELECT NOMBRE, GENERO, ETNIA, DIRECCION
+FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES LIMIT 3;
+
+USE ROLE LEY8968_ANALYST;
+
+-- IMPORTANTE: Este query FALLA (descomente para probar):
+-- SELECT GENERO FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES LIMIT 1;
+
+SELECT NOMBRE, DIRECCION FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES LIMIT 3;
+-- Resultado esperado: NOMBRE = ***PROTEGIDO*** (masking), DIRECCION = NULL (projection)
+
+SELECT COUNT(*) AS TOTAL
+FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+WHERE GENERO IS NOT NULL;
+-- Resultado: cuenta filas (el query NO falla)
+
+USE SECONDARY ROLES ALL;</code></pre>
+
+<h3><span class="step-num">4</span> Vista Consolidada de Todas las Policies</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+SELECT POLICY_NAME, POLICY_KIND, REF_COLUMN_NAME, POLICY_STATUS
+FROM TABLE(EMPRESA_DEMO_CR.INFORMATION_SCHEMA.POLICY_REFERENCES(
+  ref_entity_name => 'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES',
+  ref_entity_domain => 'TABLE'
+))
+ORDER BY REF_COLUMN_NAME, POLICY_KIND;</code></pre>
+
+<div class="info-box">
+  <strong>Requiere Enterprise Edition:</strong> Las Projection Policies estan disponibles en cuentas Snowflake Enterprise Edition o superior. Tag-based projection policies (asociar policy a un tag via ALTER TAG) estan en Preview.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 8                                      -->
+<!-- ============================================ -->
+<h2 id="mod8"><span class="module-badge">Modulo 8</span> Derechos del Titular (ARCO) <span class="ley8968-ref">Arts. 8-9</span></h2>
+
+<p>Los Arts. 8-9 de la Ley 8968 garantizan al titular derechos sobre sus datos, conocidos como derechos <strong>ARCO</strong> (Acceso, Rectificacion, Cancelacion, Oposicion). Implementamos cada derecho como un stored procedure con auditoria automatica.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Derecho ARCO</th><th>Articulo</th><th>Descripcion</th><th>Procedure</th></tr></thead>
+  <tbody>
+    <tr><td>Acceso</td><td>Art. 8</td><td>Confirmar existencia y obtener acceso a sus datos personales</td><td><code>ARCO_ACCESS</code></td></tr>
+    <tr><td>Rectificacion</td><td>Art. 9</td><td>Corregir datos inexactos, incompletos o desactualizados</td><td><code>ARCO_CORRECTION</code></td></tr>
+    <tr><td>Cancelacion</td><td>Art. 9</td><td>Eliminar o anonimizar datos cuando ya no sean necesarios</td><td><code>ARCO_DELETE</code></td></tr>
+    <tr><td>Portabilidad</td><td>Art. 8</td><td>Exportar datos en formato estructurado</td><td><code>ARCO_PORTABILITY</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3><span class="step-num">1</span> Crear Tabla de Auditoria ARCO</h3>
+<pre><code class="language-sql">USE ROLE LEY8968_OFICIAL_DATOS;
+
+CREATE OR REPLACE TABLE LEY8968_GOVERNANCE.AUDIT.ARCO_LOG (
+  REQUEST_ID    STRING DEFAULT UUID_STRING(),
+  REQUEST_TYPE  STRING,
+  TITULAR_ID    STRING    COMMENT 'Cedula o identificador del titular',
+  REQUESTED_BY  STRING DEFAULT CURRENT_USER(),
+  REQUESTED_AT  TIMESTAMP_LTZ DEFAULT CURRENT_TIMESTAMP(),
+  STATUS        STRING DEFAULT 'PENDIENTE',
+  COMPLETED_AT  TIMESTAMP_LTZ,
+  DETAILS       VARIANT
+)
+COMMENT = 'Log de solicitudes de derechos del titular (Arts. 8-9 Ley 8968)';</code></pre>
+
+<h3><span class="step-num">2</span> Derecho de Acceso (Art. 8)</h3>
+<pre><code class="language-sql">CREATE OR REPLACE PROCEDURE LEY8968_GOVERNANCE.AUDIT.ARCO_ACCESS(
+  TITULAR_CEDULA STRING
+)
+RETURNS TABLE()
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  INSERT INTO LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+    (REQUEST_TYPE, TITULAR_ID, STATUS, COMPLETED_AT)
+  VALUES
+    ('ACCESO', :TITULAR_CEDULA, 'CONCLUIDO', CURRENT_TIMESTAMP());
+
+  LET rs RESULTSET := (
+    SELECT ID, NOMBRE, CEDULA, EMAIL, TELEFONO, FECHA_NACIMIENTO,
+           DIRECCION, DISTRITO, CANTON, PROVINCIA, FECHA_REGISTRO
+    FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    WHERE CEDULA = :TITULAR_CEDULA
+  );
+  RETURN TABLE(rs);
+END;
+$$;</code></pre>
+
+<h3><span class="step-num">3</span> Derecho de Rectificacion (Art. 9)</h3>
+<pre><code class="language-sql">CREATE OR REPLACE PROCEDURE LEY8968_GOVERNANCE.AUDIT.ARCO_CORRECTION(
+  TITULAR_CEDULA STRING,
+  CAMPO          STRING,
+  NUEVO_VALOR    STRING
+)
+RETURNS STRING
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  INSERT INTO LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+    (REQUEST_TYPE, TITULAR_ID, DETAILS)
+  SELECT 'RECTIFICACION', :TITULAR_CEDULA,
+     OBJECT_CONSTRUCT('campo', :CAMPO, 'nuevo_valor', :NUEVO_VALOR);
+
+  IF (:CAMPO = 'EMAIL') THEN
+    UPDATE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    SET EMAIL = :NUEVO_VALOR WHERE CEDULA = :TITULAR_CEDULA;
+  ELSEIF (:CAMPO = 'TELEFONO') THEN
+    UPDATE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    SET TELEFONO = :NUEVO_VALOR WHERE CEDULA = :TITULAR_CEDULA;
+  ELSEIF (:CAMPO = 'DIRECCION') THEN
+    UPDATE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    SET DIRECCION = :NUEVO_VALOR WHERE CEDULA = :TITULAR_CEDULA;
+  ELSE
+    RETURN 'Error: Campo no permitido para rectificacion via ARCO.';
+  END IF;
+
+  UPDATE LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+  SET STATUS = 'CONCLUIDO', COMPLETED_AT = CURRENT_TIMESTAMP()
+  WHERE TITULAR_ID = :TITULAR_CEDULA
+    AND REQUEST_TYPE = 'RECTIFICACION'
+    AND STATUS = 'PENDIENTE';
+
+  RETURN CONCAT('Campo ', :CAMPO, ' rectificado con exito para el titular ', :TITULAR_CEDULA);
+END;
+$$;</code></pre>
+
+<h3><span class="step-num">4</span> Derecho de Cancelacion / Anonimizacion (Art. 9)</h3>
+<pre><code class="language-sql">CREATE OR REPLACE PROCEDURE LEY8968_GOVERNANCE.AUDIT.ARCO_DELETE(
+  TITULAR_CEDULA STRING
+)
+RETURNS STRING
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  LET cnt NUMBER := (
+    SELECT COUNT(*) FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    WHERE CEDULA = :TITULAR_CEDULA
+  );
+
+  IF (:cnt = 0) THEN
+    RETURN 'Error: Titular no encontrado.';
+  END IF;
+
+  UPDATE EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+  SET
+    NOMBRE           = 'ANONIMIZADO',
+    CEDULA           = 'X-XXXX-XXXX',
+    EMAIL            = CONCAT('anonimizado_', ID, '@removed.ley8968'),
+    TELEFONO         = '+506 0000-0000',
+    FECHA_NACIMIENTO = DATE_FROM_PARTS(1900, 01, 01),
+    DIRECCION        = 'ELIMINADO',
+    DISTRITO         = 'ELIMINADO',
+    CANTON           = 'ELIMINADO',
+    PROVINCIA        = 'XX',
+    GENERO           = NULL,
+    ETNIA            = NULL
+  WHERE CEDULA = :TITULAR_CEDULA;
+
+  INSERT INTO LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+    (REQUEST_TYPE, TITULAR_ID, STATUS, COMPLETED_AT)
+  VALUES
+    ('CANCELACION', :TITULAR_CEDULA, 'CONCLUIDO', CURRENT_TIMESTAMP());
+
+  RETURN CONCAT('Datos del titular ', :TITULAR_CEDULA, ' anonimizados con exito.');
+END;
+$$;</code></pre>
+
+<h3><span class="step-num">5</span> Derecho de Portabilidad (Art. 8)</h3>
+<pre><code class="language-sql">CREATE STAGE IF NOT EXISTS EMPRESA_DEMO_CR.DATOS_CLIENTES.ARCO_EXPORT
+  COMMENT = 'Stage para exportacion de datos en solicitudes de portabilidad';
+
+CREATE OR REPLACE PROCEDURE LEY8968_GOVERNANCE.AUDIT.ARCO_PORTABILITY(
+  TITULAR_CEDULA STRING
+)
+RETURNS STRING
+LANGUAGE SQL
+AS
+$$
+BEGIN
+  COPY INTO @EMPRESA_DEMO_CR.DATOS_CLIENTES.ARCO_EXPORT/portabilidad/
+  FROM (
+    SELECT ID, NOMBRE, CEDULA, EMAIL, TELEFONO, FECHA_NACIMIENTO,
+           DIRECCION, DISTRITO, CANTON, PROVINCIA, FECHA_REGISTRO
+    FROM EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES
+    WHERE CEDULA = :TITULAR_CEDULA
+  )
+  FILE_FORMAT = (TYPE = 'CSV' FIELD_OPTIONALLY_ENCLOSED_BY = '"')
+  OVERWRITE = TRUE
+  SINGLE = TRUE
+  HEADER = TRUE;
+
+  INSERT INTO LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+    (REQUEST_TYPE, TITULAR_ID, STATUS, COMPLETED_AT)
+  VALUES
+    ('PORTABILIDAD', :TITULAR_CEDULA, 'CONCLUIDO', CURRENT_TIMESTAMP());
+
+  RETURN CONCAT('Datos exportados a @ARCO_EXPORT/portabilidad/ para el titular ', :TITULAR_CEDULA);
+END;
+$$;</code></pre>
+
+<h3><span class="step-num">6</span> Probar Procedimientos ARCO</h3>
+<pre><code class="language-sql">CALL LEY8968_GOVERNANCE.AUDIT.ARCO_ACCESS('1-1234-5678');
+
+CALL LEY8968_GOVERNANCE.AUDIT.ARCO_CORRECTION(
+  '1-1234-5678', 'EMAIL', 'maria.nuevo@email.co.cr'
+);
+
+CALL LEY8968_GOVERNANCE.AUDIT.ARCO_PORTABILITY('2-5678-9012');
+
+SELECT * FROM LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+ORDER BY REQUESTED_AT DESC;</code></pre>
+
+<div class="info-box warn">
+  <strong>Plazo Legal (Art. 8)</strong>
+  La Ley 8968 exige respuesta a las solicitudes de acceso en un plazo maximo de <strong>5 dias habiles</strong>. Para solicitudes de rectificacion y cancelacion (Art. 9), la PRODHAB establece plazos similares. Documente el SLA interno y configure alertas para solicitudes pendientes.
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- MODULE 9                                      -->
+<!-- ============================================ -->
+<h2 id="mod9"><span class="module-badge">Modulo 9</span> Monitoreo, Auditoria y Cumplimiento <span class="ley8968-ref">Arts. 10-11, 15-18, 25-28</span></h2>
+
+<p>El monitoreo continuo es esencial para demostrar cumplimiento con la Ley 8968. Este modulo cubre auditoria de acceso, reportes de cobertura, y alertas.</p>
+
+<h3><span class="step-num">1</span> Auditoria de Acceso a Datos Personales</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+
+SELECT
+  ah.USER_NAME,
+  qh.ROLE_NAME,
+  ah.QUERY_START_TIME,
+  boa.VALUE:objectName::STRING AS OBJECT_ACCESSED,
+  boa.VALUE:objectDomain::STRING AS OBJECT_TYPE,
+  ah.QUERY_ID
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY ah
+  JOIN SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY qh
+    ON ah.QUERY_ID = qh.QUERY_ID
+  ,LATERAL FLATTEN(input => ah.BASE_OBJECTS_ACCESSED) boa
+WHERE ah.QUERY_START_TIME >= DATEADD('day', -30, CURRENT_TIMESTAMP())
+  AND boa.VALUE:objectName::STRING ILIKE '%CLIENTES%'
+ORDER BY ah.QUERY_START_TIME DESC
+LIMIT 100;</code></pre>
+
+<h3><span class="step-num">2</span> Reporte de Cobertura de Tags Ley 8968</h3>
+<pre><code class="language-sql">SELECT
+  t.TABLE_CATALOG AS DATABASE_NAME,
+  t.TABLE_SCHEMA  AS SCHEMA_NAME,
+  t.TABLE_NAME,
+  t.ROW_COUNT,
+  COALESCE(tr.TAG_VALUE, '*** SIN TAG ***') AS LEY8968_CATEGORY,
+  CASE
+    WHEN tr.TAG_VALUE IS NOT NULL THEN 'CONFORME'
+    ELSE 'PENDIENTE'
+  END AS STATUS_CUMPLIMIENTO
+FROM SNOWFLAKE.ACCOUNT_USAGE.TABLES t
+LEFT JOIN SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES tr
+  ON t.TABLE_CATALOG = tr.OBJECT_DATABASE
+  AND t.TABLE_SCHEMA = tr.OBJECT_SCHEMA
+  AND t.TABLE_NAME = tr.OBJECT_NAME
+  AND tr.TAG_NAME = 'LEY8968_DATA_CATEGORY'
+  AND tr.DOMAIN = 'TABLE'
+WHERE t.DELETED IS NULL
+  AND t.TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+ORDER BY STATUS_CUMPLIMIENTO DESC, t.TABLE_CATALOG, t.TABLE_SCHEMA;</code></pre>
+
+<h3><span class="step-num">3</span> Reporte de Cobertura de Masking Policies</h3>
+<pre><code class="language-sql">SELECT
+  pr.REF_DATABASE_NAME AS DATABASE_NAME,
+  pr.REF_SCHEMA_NAME   AS SCHEMA_NAME,
+  pr.REF_ENTITY_NAME   AS TABLE_NAME,
+  pr.REF_COLUMN_NAME   AS COLUMN_NAME,
+  pr.POLICY_NAME,
+  pr.POLICY_STATUS,
+  COALESCE(pr.TAG_NAME, 'DIRECTA') AS APLICACION
+FROM SNOWFLAKE.ACCOUNT_USAGE.POLICY_REFERENCES pr
+WHERE pr.POLICY_KIND = 'MASKING_POLICY'
+ORDER BY pr.REF_DATABASE_NAME, pr.REF_ENTITY_NAME, pr.REF_COLUMN_NAME;</code></pre>
+
+<h3><span class="step-num">4</span> Inventario de Projection Policies</h3>
+<pre><code class="language-sql">SELECT
+  pp.POLICY_NAME,
+  pp.POLICY_CATALOG AS POLICY_DATABASE,
+  pp.POLICY_SCHEMA,
+  pp.CREATED,
+  pp.POLICY_COMMENT
+FROM SNOWFLAKE.ACCOUNT_USAGE.PROJECTION_POLICIES pp
+WHERE pp.DELETED IS NULL
+ORDER BY pp.CREATED;
+
+SELECT POLICY_NAME, POLICY_KIND, REF_COLUMN_NAME, POLICY_STATUS
+FROM TABLE(EMPRESA_DEMO_CR.INFORMATION_SCHEMA.POLICY_REFERENCES(
+  ref_entity_name => 'EMPRESA_DEMO_CR.DATOS_CLIENTES.CLIENTES',
+  ref_entity_domain => 'TABLE'
+))
+WHERE POLICY_KIND = 'PROJECTION_POLICY'
+ORDER BY REF_COLUMN_NAME;</code></pre>
+
+<h3><span class="step-num">5</span> Monitorear Solicitudes ARCO Pendientes</h3>
+<pre><code class="language-sql">USE ROLE LEY8968_OFICIAL_DATOS;
+
+SELECT
+  REQUEST_ID,
+  REQUEST_TYPE,
+  TITULAR_ID,
+  REQUESTED_BY,
+  REQUESTED_AT,
+  STATUS,
+  DATEDIFF('day', REQUESTED_AT, CURRENT_TIMESTAMP()) AS DIAS_ABIERTO,
+  CASE
+    WHEN DATEDIFF('day', REQUESTED_AT, CURRENT_TIMESTAMP()) > 5
+      THEN 'ATRASADO'
+    WHEN DATEDIFF('day', REQUESTED_AT, CURRENT_TIMESTAMP()) > 3
+      THEN 'ATENCION'
+    ELSE 'DENTRO DEL PLAZO'
+  END AS SLA_STATUS
+FROM LEY8968_GOVERNANCE.AUDIT.ARCO_LOG
+WHERE STATUS = 'PENDIENTE'
+ORDER BY REQUESTED_AT ASC;</code></pre>
+
+<h3><span class="step-num">6</span> Alerta para Acceso Masivo a Datos Personales</h3>
+<pre><code class="language-sql">USE ROLE ACCOUNTADMIN;
+CREATE OR REPLACE NOTIFICATION INTEGRATION LEY8968_NOTIFICATIONS
+  TYPE = EMAIL
+  ENABLED = TRUE
+  ALLOWED_RECIPIENTS = ($LEY8968_DPO_EMAIL);
+
+USE ROLE LEY8968_OFICIAL_DATOS;
+
+CREATE OR REPLACE ALERT LEY8968_GOVERNANCE.AUDIT.ALERT_MASS_DATA_ACCESS
+  WAREHOUSE = LEY8968_TRAINING_WH
+  SCHEDULE = 'USING CRON 0 */6 * * * America/Costa_Rica'
+  IF (EXISTS (
+    SELECT 1
+    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+    WHERE EXECUTION_STATUS = 'SUCCESS'
+      AND ROWS_PRODUCED > 10000
+      AND QUERY_START_TIME >= DATEADD('hour', -6, CURRENT_TIMESTAMP())
+      AND (QUERY_TEXT ILIKE '%clientes%' OR QUERY_TEXT ILIKE '%datos_personales%')
+  ))
+  THEN
+    CALL SYSTEM$SEND_EMAIL(
+      'LEY8968_NOTIFICATIONS',
+      $LEY8968_DPO_EMAIL,
+      'ALERTA LEY 8968: Acceso masivo a datos personales detectado',
+      'Una consulta retorno mas de 10,000 registros de tablas con datos personales en las ultimas 6 horas. Verifique el ACCESS_HISTORY para detalles.'
+    );
+
+ALTER ALERT LEY8968_GOVERNANCE.AUDIT.ALERT_MASS_DATA_ACCESS RESUME;</code></pre>
+
+<h3><span class="step-num">7</span> Governance Dashboard en Snowsight</h3>
+<div class="info-box">
+  <strong>Acceso via Snowsight</strong>
+  El Oficial de Proteccion de Datos puede acceder al <strong>Governance Dashboard</strong> en Snowsight en:
+  <br/><code>Governance &amp; Security &rarr; Tags &amp; Policies</code>
+  <br/>Este dashboard muestra:
+  <ul style="margin:4px 0 0; padding-left:18px;">
+    <li><strong>Coverage:</strong> porcentaje de tablas/columnas con tags y policies</li>
+    <li><strong>Prevalence:</strong> tags y policies mas utilizados</li>
+    <li><strong>Tagged Objects:</strong> lista detallada de objetos protegidos</li>
+  </ul>
+  <br/>Requisitos: role con <code>SNOWFLAKE.GOVERNANCE_VIEWER</code> y <code>SNOWFLAKE.OBJECT_VIEWER</code> (ya concedidos al LEY8968_OFICIAL_DATOS en Modulo 2).
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- GLOSSARY                                      -->
+<!-- ============================================ -->
+<h2 id="glossary"><span class="module-badge">Ref.</span> Glosario Ley 8968</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Termino</th><th>Articulo</th><th>Definicion</th></tr></thead>
+  <tbody>
+    <tr><td class="glossary-term">PRODHAB</td><td>Arts. 15-18</td><td>Agencia de Proteccion de Datos de los Habitantes &mdash; organo adscrito al Ministerio de Justicia y Paz, responsable de fiscalizar el cumplimiento de la Ley 8968</td></tr>
+    <tr><td class="glossary-term">Autodeterminacion Informativa</td><td>Art. 5, inc. 1</td><td>Derecho fundamental de toda persona a saber que datos personales suyos se recopilan, para que y por quien</td></tr>
+    <tr><td class="glossary-term">ARCO</td><td>Arts. 8-9</td><td>Derechos de Acceso, Rectificacion, Cancelacion y Oposicion del titular de los datos</td></tr>
+    <tr><td class="glossary-term">Consentimiento Informado</td><td>Art. 5, inc. 1; Art. 6</td><td>Manifestacion libre, expresa e informada por la cual el titular acepta el tratamiento de sus datos personales</td></tr>
+    <tr><td class="glossary-term">Dato Personal</td><td>Art. 3, inc. 1</td><td>Cualquier dato relativo a una persona fisica identificada o identificable</td></tr>
+    <tr><td class="glossary-term">Dato Sensible</td><td>Art. 3, inc. 4; Art. 7</td><td>Dato sobre origen racial/etnico, opiniones politicas, convicciones morales/religiosas, afiliacion sindical, informacion de salud, vida sexual, datos biometricos</td></tr>
+    <tr><td class="glossary-term">Dato de Acceso Irrestricto</td><td>Art. 3, inc. 2</td><td>Datos contenidos en bases de datos publicas de acceso general</td></tr>
+    <tr><td class="glossary-term">Dato de Acceso Restringido</td><td>Art. 3, inc. 3</td><td>Datos que solo el titular o personas autorizadas pueden acceder</td></tr>
+    <tr><td class="glossary-term">Encargado de la Base de Datos</td><td>Art. 3, inc. 6</td><td>Persona fisica o juridica que trata datos personales por cuenta del responsable</td></tr>
+    <tr><td class="glossary-term">Principio de Calidad</td><td>Art. 5, inc. 3</td><td>Los datos deben ser actuales, veraces, exactos y adecuados al fin para el cual fueron recopilados</td></tr>
+    <tr><td class="glossary-term">Responsable de la Base de Datos</td><td>Art. 3, inc. 5</td><td>Persona fisica o juridica que administra, gestiona o se encarga de la base de datos</td></tr>
+    <tr><td class="glossary-term">Titular de los Datos</td><td>Art. 3</td><td>Persona fisica a quien se refieren los datos personales</td></tr>
+    <tr><td class="glossary-term">Tratamiento de Datos</td><td>Art. 3</td><td>Toda operacion sobre datos personales (recoleccion, almacenamiento, uso, supresion, comunicacion, etc.)</td></tr>
+    <tr><td class="glossary-term">Transferencia de Datos</td><td>Arts. 13-14</td><td>Comunicacion de datos a un tercero, incluyendo transferencias internacionales sujetas a autorizacion de PRODHAB</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============================================ -->
+<!-- REFERENCE TABLE                               -->
+<!-- ============================================ -->
+<h2 id="ref-table"><span class="module-badge">Ref.</span> Tabla: Ley 8968 &rarr; Snowflake</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Articulo Ley 8968</th><th>Requisito</th><th>Recurso Snowflake</th><th>Modulo</th></tr></thead>
+  <tbody>
+    <tr><td>Art. 3</td><td>Definicion de datos personales, sensibles, acceso restringido/irrestricto</td><td>CLASSIFY, System Tags (SEMANTIC_CATEGORY)</td><td><a href="#mod3">3</a></td></tr>
+    <tr><td>Art. 5, inc. 1</td><td>Principio de autodeterminacion informativa</td><td>Tags LEY8968_FINALIDAD, LEY8968_BASE_LEGAL</td><td><a href="#mod4">4</a></td></tr>
+    <tr><td>Art. 5, inc. 3</td><td>Principio de calidad y adecuacion al fin</td><td>Row Access Policies + Mapping Table</td><td><a href="#mod6">6</a></td></tr>
+    <tr><td>Art. 5, inc. 5</td><td>Principio de seguridad de los datos</td><td>Encryption (AES-256/TLS), RBAC, Masking, RAP</td><td><a href="#mod2">2</a>, <a href="#mod5">5</a></td></tr>
+    <tr><td>Arts. 5-6</td><td>Bases legales y consentimiento informado</td><td>Tag LEY8968_BASE_LEGAL con ALLOWED_VALUES</td><td><a href="#mod4">4</a></td></tr>
+    <tr><td>Art. 7</td><td>Tratamiento de datos sensibles</td><td>Tag LEY8968_DATA_CATEGORY = DATO_SENSIBLE, Projection Policies</td><td><a href="#mod4">4</a>, <a href="#mod7">7</a></td></tr>
+    <tr><td>Art. 8</td><td>Derecho de acceso (5 dias habiles)</td><td>Procedure ARCO_ACCESS</td><td><a href="#mod8">8</a></td></tr>
+    <tr><td>Art. 9</td><td>Derecho de rectificacion</td><td>Procedure ARCO_CORRECTION</td><td><a href="#mod8">8</a></td></tr>
+    <tr><td>Art. 9</td><td>Derecho de cancelacion</td><td>Procedure ARCO_DELETE (anonimizacion)</td><td><a href="#mod8">8</a></td></tr>
+    <tr><td>Art. 8</td><td>Derecho de portabilidad</td><td>Procedure ARCO_PORTABILITY + COPY INTO</td><td><a href="#mod8">8</a></td></tr>
+    <tr><td>Arts. 10-11</td><td>Deberes del responsable</td><td>Role LEY8968_OFICIAL_DATOS, Governance Dashboard</td><td><a href="#mod2">2</a></td></tr>
+    <tr><td>Art. 6</td><td>Retencion limitada de datos</td><td>Tag LEY8968_RETENCION + Time Travel</td><td><a href="#mod4">4</a></td></tr>
+    <tr><td>Arts. 13-14</td><td>Transferencia y comunicacion de datos</td><td>Data Sharing con Secure Share, Network Policies</td><td><a href="#mod9">9</a></td></tr>
+    <tr><td>Arts. 15-18</td><td>PRODHAB &mdash; supervision y registro de bases de datos</td><td>Governance Dashboard, Trust Center</td><td><a href="#mod9">9</a></td></tr>
+    <tr><td>Arts. 25-28</td><td>Sanciones e infracciones</td><td>Alert + ACCESS_HISTORY + QUERY_HISTORY</td><td><a href="#mod9">9</a></td></tr>
+  </tbody>
+</table>
+</div>
+
+<a href="#top" class="back-to-top">&uarr; Volver al inicio</a>
+
+<!-- ============================================ -->
+<!-- FOOTER                                        -->
+<!-- ============================================ -->
+<footer>
+  <p><strong>Ley 8968 + Snowflake: Guia de Cumplimiento</strong></p>
+  <p>Este material se proporciona con fines educativos. Consulte a su equipo legal para validar el cumplimiento de la Ley 8968 aplicable a su organizacion.</p>
+  <p>Snowflake &bull; Enterprise Edition &bull; Generado en Octubre 2026</p>
+</footer>
+
+</main>
+
+<!-- Libraries -->
+<script src="/libs/highlight.js@11.10.0/highlight.min.js"></script>
+<script src="/libs/mermaid@10.9.6/mermaid.min.js"></script>
+<script>
+  document.querySelectorAll('pre code').forEach(function(block) {
+    hljs.highlightElement(block);
+  });
+
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'strict',
+    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default'
+  });
+
+  document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+    anchor.addEventListener('click', function(e) {
+      var targetId = this.getAttribute('href').substring(1);
+      var target = document.getElementById(targetId);
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
+    var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+    function onScroll() {
+      var idx = -1, y = window.scrollY + 120;
+      for (var i = 0; i < targets.length; i++) {
+        if (targets[i] && targets[i].offsetTop <= y) idx = i;
+      }
+      links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+
+</body>
+</html>
